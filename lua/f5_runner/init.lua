@@ -4,7 +4,8 @@ local options = { height = 12, winbar = false, keymaps = true, filetypes = {} }
 local function quote(s) return vim.fn.shellescape(s) end
 function M.command(file, ft)
   if options.filetypes[ft] then
-    local custom = options.filetypes[ft](file)
+    local ok, custom = pcall(options.filetypes[ft], file)
+    if not ok then return nil, 'Custom runner failed: ' .. tostring(custom) end
     if type(custom) ~= 'table' or type(custom[1]) ~= 'string' then return nil, 'Custom runner must return an argv list' end
     if vim.fn.executable(custom[1]) ~= 1 then return nil, 'Missing executable: ' .. custom[1] end
     return custom
@@ -29,8 +30,9 @@ function M.command(file, ft)
     vim.fn.mkdir(build, 'p')
     if vim.fn.has('win32') == 1 or vim.fn.executable('bash') ~= 1 then return nil, 'Compiled runners require a Unix shell (bash)' end
     local bin = build .. '/' .. vim.fn.sha256(file):sub(1, 16) .. '-' .. vim.fn.getpid()
-    local flags = ft == 'cpp' and ' -std=c++17 -Wall -Wextra' or ft == 'c' and ' -std=c17 -Wall -Wextra' or ''
-    return { 'bash', '-c', tool .. flags .. ' ' .. quote(file) .. ' -o ' .. quote(bin) .. ' && ' .. quote(bin) }
+    local flags = ft == 'cpp' and ' -std=c++17 -Wall -Wextra' or ft == 'c' and ' -std=c17 -Wall -Wextra' or ' --edition 2021'
+    -- Remove the temporary binary when the run ends so the cache does not grow every session.
+    return { 'bash', '-c', 'trap ' .. quote('rm -f ' .. quote(bin)) .. ' EXIT; ' .. tool .. flags .. ' ' .. quote(file) .. ' -o ' .. quote(bin) .. ' && ' .. quote(bin) }
   end
   local cmd = commands[ft]
   if not cmd then return nil, 'No single-file runner for: ' .. ft end
@@ -44,7 +46,8 @@ function M.run()
   if file == '' then vim.notify('Save the file with a name first (:w filename)', vim.log.levels.WARN); return end
   local cmd, err = M.command(file, vim.bo[buf].filetype)
   if not cmd then vim.notify(err, vim.log.levels.WARN); return end
-  local saved, save_err = pcall(vim.cmd, 'update')
+  -- :update skips unmodified buffers, so a new buffer that was never written would run a missing file.
+  local saved, save_err = pcall(vim.cmd, vim.fn.filereadable(file) == 1 and 'update' or 'write')
   if not saved then vim.notify(tostring(save_err), vim.log.levels.ERROR); return end
   if state.job and vim.fn.jobwait({ state.job }, 0)[1] == -1 then
     vim.notify('Code is already running. Use :F5Stop first.', vim.log.levels.WARN); return
@@ -53,17 +56,22 @@ function M.run()
   vim.cmd('botright ' .. options.height .. 'new')
   state.buf = vim.api.nvim_get_current_buf()
   vim.bo[state.buf].bufhidden = 'hide'
-  vim.wo.winbar = ' Output — ' .. vim.fn.fnamemodify(file, ':t') .. ' | Ctrl+C: interrupt | Esc: close'
+  local name = vim.fn.fnamemodify(file, ':t'):gsub('%%', '%%%%')
+  vim.wo.winbar = ' Output — ' .. name .. ' | Ctrl+C: interrupt | Esc: close'
   local function close_output()
     vim.cmd('stopinsert')
-    if vim.api.nvim_get_current_buf() == state.buf then vim.cmd('close') end
+    if vim.api.nvim_get_current_buf() ~= state.buf then return end
+    -- :close fails on the last window; switch back to the code buffer instead.
+    if #vim.api.nvim_tabpage_list_wins(0) > 1 then vim.cmd('close') else vim.cmd('buffer ' .. buf) end
   end
   vim.keymap.set({ 't', 'n' }, '<Esc>', close_output, { buffer = state.buf, desc = 'Close Run output' })
-  vim.keymap.set('n', 'q', '<cmd>close<cr>', { buffer = state.buf, desc = 'Close output' })
+  vim.keymap.set('n', 'q', close_output, { buffer = state.buf, desc = 'Close output' })
   state.exit = nil
   state.job = vim.fn.jobstart(cmd, {
     term = true, cwd = vim.fs.dirname(file),
-    on_exit = function(_, code)
+    on_exit = function(job, code)
+      -- Ignore a late exit from an earlier run so it cannot overwrite the current run's state.
+      if job ~= state.job then return end
       state.exit = code
       vim.schedule(function() vim.notify('Run finished — exit code ' .. code, code == 0 and vim.log.levels.INFO or vim.log.levels.WARN) end)
     end,
@@ -75,10 +83,18 @@ function M.run()
   vim.cmd('startinsert')
 end
 function M.stop()
-  if state.job and vim.fn.jobwait({state.job}, 0)[1] == -1 then vim.fn.jobstop(state.job) end
+  if state.job and vim.fn.jobwait({state.job}, 0)[1] == -1 then
+    vim.fn.jobstop(state.job)
+  else
+    vim.notify('Nothing is running', vim.log.levels.INFO)
+  end
 end
 M.state = state
 function M.setup(opts)
+  if vim.fn.has('nvim-0.11') ~= 1 then
+    vim.notify('f5-runner.nvim requires Neovim 0.11 or newer', vim.log.levels.ERROR)
+    return
+  end
   options = vim.tbl_deep_extend('force', options, opts or {})
   assert(type(options.height) == 'number' and options.height >= 1 and options.height % 1 == 0, 'height must be a positive integer')
   if options.keymaps then
