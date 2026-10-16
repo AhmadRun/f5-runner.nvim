@@ -53,7 +53,7 @@ Closing output **does not stop a running program**. Use F6 or `:F5Stop` after re
 | Python | `python3`, preferring a nearby `.venv/bin/python` or `venv/bin/python` |
 | C++ | `g++ -std=c++17 -Wall -Wextra`, then run if compilation succeeds |
 | C | `gcc -std=c17 -Wall -Wextra`, then run if compilation succeeds |
-| Rust | `rustc`, then run if compilation succeeds |
+| Rust | `rustc --edition 2021`, then run if compilation succeeds |
 | JavaScript | `node` |
 | TypeScript | `tsx` — install separately |
 | Shell | `bash` |
@@ -95,7 +95,7 @@ A colorscheme change may reset these highlights.
 
 - Saves the current file before execution; unnamed files must be saved with a filename first.
 - Runs from the file's directory; it does not automatically build an entire project.
-- Build output is stored under Neovim's cache directory, in `f5-runner/`.
+- Build output is stored under Neovim's cache directory, in `f5-runner/`, and removed when the run ends.
 - Compiler paths are shell-escaped; interpreted languages use argv lists.
 - No debugger, multi-file CMake/Cargo integration, or runtime installation.
 - Only run code you intend to execute. Programs run with your user permissions, without a sandbox.
@@ -109,7 +109,7 @@ From the repository root, with Python 3, GCC, G++, Node.js, and Bash installed:
 nvim --headless -u NONE -l integration.lua
 ```
 
-Tests cover actual execution, interactive Python input, compiler failure, filenames with spaces and quotes, Escape output closing, and stopping a running program.
+Tests cover actual execution, interactive Python input, compiler failure, filenames with spaces, quotes and `%`, build cleanup, Rust 2021 code (when `rustc` is installed), running a never-written buffer, Escape output closing, and stopping a running program.
 
 ## العربية
 

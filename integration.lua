@@ -7,7 +7,9 @@ local function run(name, lines, expected, input, failure)
   local file = dir .. '/' .. name
   vim.fn.writefile(lines, file)
   vim.cmd('edit ' .. vim.fn.fnameescape(file))
-  vim.bo.filetype = vim.filetype.match({filename=file})
+  -- Shell detection needs runtime state that -u NONE does not load, so set it directly.
+  vim.bo.filetype = name:match('%.sh$') and 'sh' or vim.filetype.match({filename=file})
+  assert(vim.bo.filetype ~= '', 'No filetype detected: '..name)
   r.state.exit = nil
   r.run()
   if input then vim.fn.chansend(r.state.job, input .. '\n') end
@@ -30,6 +32,21 @@ run('broken.cpp', {'int main() { BROKEN }'}, 'error:', nil, true)
 run('hello.c', {'#include <stdio.h>', 'int main(void) { puts("C OK"); }'}, 'C OK')
 run('hello.js', {'console.log("JS OK")'}, 'JS OK')
 run('hello.sh', {'echo "BASH OK"'}, 'BASH OK')
+run('100% done.py', {'print("PERCENT OK")'}, 'PERCENT OK')
+assert(#vim.fn.glob(vim.fn.stdpath('cache') .. '/f5-runner/*', false, true) == 0, 'Compiled binaries were left in the cache')
+print('PASS compiled binaries cleaned up')
+if vim.fn.executable('rustc') == 1 then
+  -- Edition 2021 code: TryFrom is only in the prelude from 2021 on.
+  run('hello.rs', {'fn main() { let x = u8::try_from(7i32).unwrap(); println!("RUST OK {x}"); }'}, 'RUST OK 7')
+end
+local new_file = dir .. '/never_written.py'
+vim.cmd('edit ' .. vim.fn.fnameescape(new_file)); vim.bo.filetype = 'python'
+vim.bo.modified = false
+r.state.exit = nil
+r.run()
+assert(vim.fn.filereadable(new_file) == 1, 'New buffer was not written before running')
+assert(vim.wait(15000, function() return r.state.exit ~= nil end, 50) and r.state.exit == 0, 'Exit: never_written.py')
+print('PASS running a new, never-written buffer')
 local wait_file = dir .. '/wait.py'
 vim.fn.writefile({'import time', 'time.sleep(60)'}, wait_file)
 vim.cmd('edit ' .. vim.fn.fnameescape(wait_file)); vim.bo.filetype = 'python'
