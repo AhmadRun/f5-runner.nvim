@@ -30,7 +30,7 @@ function M.command(file, ft)
     vim.fn.mkdir(build, 'p')
     if vim.fn.has('win32') == 1 or vim.fn.executable('bash') ~= 1 then return nil, 'Compiled runners require a Unix shell (bash)' end
     local bin = build .. '/' .. vim.fn.sha256(file):sub(1, 16) .. '-' .. vim.fn.getpid()
-    local flags = ft == 'cpp' and ' -std=c++17 -Wall -Wextra' or ft == 'c' and ' -std=c17 -Wall -Wextra' or ' --edition 2021'
+    local flags = ft == 'cpp' and ' -std=c++23 -Wall -Wextra' or ft == 'c' and ' -std=c2x -Wall -Wextra' or ' --edition 2024'
     -- Remove the temporary binary when the run ends so the cache does not grow every session.
     return { 'bash', '-c', 'trap ' .. quote('rm -f ' .. quote(bin)) .. ' EXIT; ' .. tool .. flags .. ' ' .. quote(file) .. ' -o ' .. quote(bin) .. ' && ' .. quote(bin) }
   end
