@@ -36,7 +36,7 @@ run('100% done.py', {'print("PERCENT OK")'}, 'PERCENT OK')
 assert(#vim.fn.glob(vim.fn.stdpath('cache') .. '/f5-runner/*', false, true) == 0, 'Compiled binaries were left in the cache')
 print('PASS compiled binaries cleaned up')
 if vim.fn.executable('rustc') == 1 then
-  -- Edition 2021 code: TryFrom is only in the prelude from 2021 on.
+  -- TryFrom is only in the prelude from edition 2021 on, so this also checks the edition flag.
   run('hello.rs', {'fn main() { let x = u8::try_from(7i32).unwrap(); println!("RUST OK {x}"); }'}, 'RUST OK 7')
 end
 local new_file = dir .. '/never_written.py'

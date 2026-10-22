@@ -8,7 +8,7 @@ A small Lua plugin for single-file programs. No Snacks, ToggleTerm, or other plu
 
 - Neovim **0.11 or newer**.
 - The interpreter/compiler for the language you want to run.
-- Linux/macOS with Bash for the compiled-language commands. Tested locally on Linux with Neovim 0.12.5; macOS has not been tested.
+- Linux/macOS with Bash for the compiled-language commands. Tested locally on Linux with Neovim 0.12.6; macOS has not been tested.
 
 ## Installation
 
@@ -51,9 +51,9 @@ Closing output **does not stop a running program**. Use F6 or `:F5Stop` after re
 | Filetype | Executable / behavior |
 |---|---|
 | Python | `python3`, preferring a nearby `.venv/bin/python` or `venv/bin/python` |
-| C++ | `g++ -std=c++17 -Wall -Wextra`, then run if compilation succeeds |
-| C | `gcc -std=c17 -Wall -Wextra`, then run if compilation succeeds |
-| Rust | `rustc --edition 2021`, then run if compilation succeeds |
+| C++ | `g++ -std=c++23 -Wall -Wextra`, then run if compilation succeeds |
+| C | `gcc -std=c2x -Wall -Wextra` (C23), then run if compilation succeeds |
+| Rust | `rustc --edition 2024`, then run if compilation succeeds |
 | JavaScript | `node` |
 | TypeScript | `tsx` — install separately |
 | Shell | `bash` |
@@ -109,7 +109,7 @@ From the repository root, with Python 3, GCC, G++, Node.js, and Bash installed:
 nvim --headless -u NONE -l integration.lua
 ```
 
-Tests cover actual execution, interactive Python input, compiler failure, filenames with spaces, quotes and `%`, build cleanup, Rust 2021 code (when `rustc` is installed), running a never-written buffer, Escape output closing, and stopping a running program.
+Tests cover actual execution, interactive Python input, compiler failure, filenames with spaces, quotes and `%`, build cleanup, Rust 2024 code (when `rustc` is installed), running a never-written buffer, Escape output closing, and stopping a running program.
 
 ## العربية
 
